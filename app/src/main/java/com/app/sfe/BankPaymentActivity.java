@@ -59,7 +59,6 @@ public class BankPaymentActivity extends AppCompatActivity {
             .setAppId("bank-app-registered-id")
             .setProviderType(SFEProviderType.BANK)
             .setCustomSecurityLevel(SFESecurityLevel.HIGH)
-            .setAllowedAPIs(allowedAPIs)
             .build();
             
         SecureFinancialEnvironment.initialize(this, config, this::handleInitResult);
@@ -86,27 +85,51 @@ public class BankPaymentActivity extends AppCompatActivity {
         // Get payment data from bank UI
         BankPaymentData paymentData = collectPaymentDataFromUI();
         
+        // Create a secure payload from the payment data
+        SFESecurePayload securePayload = new SFESecurePayload();
+        securePayload.addField("sourceAccount", 
+            new SFESecureTextField.SecureValue(paymentData.getSourceAccount()));
+        securePayload.addField("destinationAccount", 
+            new SFESecureTextField.SecureValue(paymentData.getDestinationAccount()));
+        securePayload.addField("amount", 
+            new SFESecureTextField.SecureValue(String.valueOf(paymentData.getAmount())));
+        securePayload.addField("currency", 
+            new SFESecureTextField.SecureValue(paymentData.getCurrency()));
+        securePayload.addField("description", 
+            new SFESecureTextField.SecureValue(paymentData.getDescription()));
+        
         // Process through SFE secure channel
         SecureFinancialEnvironment.getSecureCommunication()
-            .sendBankTransaction(
+            .sendSecureTransaction(
                 "https://bank-api.example.com/payments/process",
-                paymentData,
-                30000, // 30 seconds timeout
-                this::handleTransactionResult
+                securePayload,
+                new SecureFinancialEnvironment.SFETransactionCallback() {
+                    @Override
+                    public void onSuccess(SFETransactionResult result) {
+                        handleTransactionSuccess(result);
+                    }
+                    
+                    @Override
+                    public void onError(SFEException e) {
+                        handleTransactionError(e);
+                    }
+                }
             );
     }
     
-    private void handleTransactionResult(SFETransactionResult<?> result) {
+    private void handleTransactionSuccess(SFETransactionResult result) {
         runOnUiThread(() -> {
             showLoading(false);
-            
-            if (result.isSuccess()) {
-                tvStatus.setText("Transaction completed successfully");
-                Toast.makeText(this, "Payment processed successfully", Toast.LENGTH_SHORT).show();
-            } else {
-                tvStatus.setText("Transaction failed: " + result.getErrorMessage());
-                showTransactionFailureDialog(result.getErrorMessage(), result.getErrorCode());
-            }
+            tvStatus.setText("Transaction completed successfully");
+            Toast.makeText(this, "Payment processed successfully", Toast.LENGTH_SHORT).show();
+        });
+    }
+    
+    private void handleTransactionError(SFEException e) {
+        runOnUiThread(() -> {
+            showLoading(false);
+            tvStatus.setText("Transaction failed: " + e.getMessage());
+            showTransactionFailureDialog(e.getMessage(), e.getErrorCode());
         });
     }
     
@@ -141,7 +164,18 @@ public class BankPaymentActivity extends AppCompatActivity {
     private void showLoading(boolean isLoading) {
         progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
         btnInitialize.setEnabled(!isLoading);
-        btnProcessPayment.setEnabled(!isLoading && SecureFinancialEnvironment.verifySecureEnvironment());
+        
+        // Check if SDK is initialized before enabling payment button
+        if (!isLoading) {
+            try {
+                SecureFinancialEnvironment.getSecureCommunication();
+                btnProcessPayment.setEnabled(true);
+            } catch (IllegalStateException e) {
+                btnProcessPayment.setEnabled(false);
+            }
+        } else {
+            btnProcessPayment.setEnabled(false);
+        }
     }
     
     /**

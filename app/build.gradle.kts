@@ -52,11 +52,14 @@ dependencies {
     
     // Room database
     implementation(libs.room.runtime)
-    //implementation(libs.androidx.security.crypto)
     annotationProcessor(libs.room.compiler)
     
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    
+    // Note: Since we're building the SFE SDK locally, the SDK is
+    // implemented through our existing classes in the codebase
+    // rather than external dependencies
 }

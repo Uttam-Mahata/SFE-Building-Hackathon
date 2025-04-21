@@ -1,258 +1,228 @@
 package com.app.sfe.security;
 
 import android.content.Context;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKey;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import com.app.sfe.SFEException;
+import com.app.sfe.SFESecurePayload;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
- * Main entry point for the Secure Financial Environment SDK.
- * Provides methods for initialization, secure communication, and transaction processing.
+ * Core class of the Secure Financial Environment.
+ * Provides secure transaction handling and communication.
  */
 public class SecureFinancialEnvironment {
+    private static final String TAG = "SecureFinancialEnv";
+    
     private static SecureFinancialEnvironment instance;
     private final Context context;
-    private final SFEConfiguration configuration;
-    private final SecureCommunicationManager secureCommunication;
-    private final Executor executor = Executors.newCachedThreadPool();
-    private boolean isInitialized = false;
-
-    private SecureFinancialEnvironment(Context context, SFEConfiguration configuration) {
+    private final SFEConfiguration config;
+    private final SecureCommunicationManager communicationManager;
+    private final Map<String, Object> securityTokens = new ConcurrentHashMap<>();
+    
+    // Prevent instantiation outside of the class
+    private SecureFinancialEnvironment(Context context, SFEConfiguration config) {
         this.context = context.getApplicationContext();
-        this.configuration = configuration;
-        this.secureCommunication = new SecureCommunicationManager(this.context, configuration);
+        this.config = config;
+        this.communicationManager = new SecureCommunicationManager();
     }
-
+    
     /**
-     * Initializes the Secure Financial Environment with the provided configuration.
-     *
+     * Initializes the Secure Financial Environment.
+     * 
      * @param context Application context
-     * @param configuration SFE configuration
-     * @param callback Callback to receive the initialization result
+     * @param config Security configuration
+     * @param callback Callback for initialization result
      */
     public static void initialize(@NonNull Context context, 
-                                 @NonNull SFEConfiguration configuration,
-                                 @NonNull InitCallback callback) {
-        if (instance != null && instance.isInitialized) {
-            callback.onInitComplete(SFEInitResult.success());
-            return;
+                                 @NonNull SFEConfiguration config, 
+                                 @NonNull Consumer<SFEInitResult> callback) {
+        if (instance == null) {
+            try {
+                Log.d(TAG, "Initializing Secure Financial Environment");
+                
+                // Create new instance
+                instance = new SecureFinancialEnvironment(context, config);
+                
+                // Perform security initialization
+                instance.performSecurityInitialization(result -> {
+                    if (result.isSuccess()) {
+                        Log.d(TAG, "SFE initialization successful");
+                        callback.accept(SFEInitResult.success());
+                    } else {
+                        Log.e(TAG, "SFE initialization failed: " + result.getErrorReason());
+                        callback.accept(result);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing SFE: " + e.getMessage(), e);
+                callback.accept(SFEInitResult.failure(1001, 
+                    "Error initializing SFE: " + e.getMessage()));
+            }
+        } else {
+            // Already initialized
+            callback.accept(SFEInitResult.success());
         }
-
-        instance = new SecureFinancialEnvironment(context, configuration);
-        instance.performInitialization(callback);
     }
-
+    
     /**
-     * Returns the secure communication manager for handling secure API calls.
+     * Gets the secure communication manager.
      * 
-     * @return SecureCommunicationManager instance
+     * @return The secure communication manager
      * @throws IllegalStateException if SFE is not initialized
      */
     public static SecureCommunicationManager getSecureCommunication() {
-        checkInitialized();
-        return instance.secureCommunication;
-    }
-
-    /**
-     * Performs security checks before financial operations.
-     * 
-     * @return true if environment is secure, false otherwise
-     */
-    public static boolean verifySecureEnvironment() {
-        checkInitialized();
-        return instance.performSecurityChecks();
-    }
-
-    private static void checkInitialized() {
-        if (instance == null || !instance.isInitialized) {
-            throw new IllegalStateException("SecureFinancialEnvironment not initialized. Call initialize() first.");
+        if (instance == null) {
+            throw new IllegalStateException(
+                "SecureFinancialEnvironment not initialized. Call initialize() first.");
         }
+        return instance.communicationManager;
     }
-
-    /**
-     * Performs security checks on the current environment.
-     * 
-     * @return true if the environment is secure, false otherwise
-     */
-    private boolean performSecurityChecks() {
-        // Perform runtime security checks
-        return !isEmulator() && !isRooted() && !isDebuggerConnected();
-    }
-
-    private boolean isDebuggerConnected() {
-        return android.os.Debug.isDebuggerConnected();
-    }
-
-    private void performInitialization(InitCallback callback) {
-        executor.execute(() -> {
-            try {
-                // 1. Initialize secure storage
-                initializeSecureStorage();
-                
-                // 2. Perform device attestation
-                boolean attestationPassed = performDeviceAttestation();
-                if (!attestationPassed) {
-                    callback.onInitComplete(SFEInitResult.failure(
-                            "Device attestation failed - security requirements not met", 1001));
+    
+    private void performSecurityInitialization(Consumer<SFEInitResult> callback) {
+        try {
+            // Verify app integrity
+            verifyAppIntegrity(integrityResult -> {
+                if (!integrityResult) {
+                    callback.accept(SFEInitResult.failure(2001, 
+                        "App integrity verification failed"));
                     return;
                 }
                 
-                // 3. Initialize secure communication
-                secureCommunication.initialize();
-                
-                // 4. Check for security vulnerabilities
-                if (!checkDeviceSecurity()) {
-                    callback.onInitComplete(SFEInitResult.failure(
-                            "Device security check failed - vulnerabilities detected", 1002));
-                    return;
-                }
-                
-                // 5. Complete initialization
-                isInitialized = true;
-                callback.onInitComplete(SFEInitResult.success());
-                
-            } catch (Exception e) {
-                callback.onInitComplete(SFEInitResult.failure(
-                        "Initialization failed: " + e.getMessage(), 1000));
-            }
-        });
-    }
-
-    private void initializeSecureStorage() throws GeneralSecurityException, IOException {
-        MasterKey masterKey = new MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build();
-
-        EncryptedSharedPreferences.create(
-                context,
-                "sfe_secure_prefs",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        );
-    }
-
-    private boolean performDeviceAttestation() {
-        // In a real implementation, this would perform actual hardware attestation
-        // For this example, we'll just do basic checks
-        return !isEmulator() && !isRooted();
-    }
-
-    private boolean checkDeviceSecurity() {
-        // Check for security issues like debugging enabled, screen lock, etc.
-        return true; // Simplified for this example
-    }
-
-    private boolean isEmulator() {
-        // Basic emulator detection logic
-        return android.os.Build.FINGERPRINT.startsWith("generic")
-                || android.os.Build.FINGERPRINT.contains("emulator")
-                || android.os.Build.MODEL.contains("google_sdk")
-                || android.os.Build.MODEL.contains("Emulator")
-                || android.os.Build.MODEL.contains("Android SDK built for x86");
-    }
-
-    private boolean isRooted() {
-        // Basic root detection logic - in a real app would be more sophisticated
-        String[] knownRootFiles = {"/system/app/Superuser.apk", "/system/xbin/su", "/system/bin/su"};
-        for (String path : knownRootFiles) {
-            if (new java.io.File(path).exists()) {
-                return true;
-            }
+                // Initialize secure storage
+                initializeSecureStorage(storageResult -> {
+                    if (!storageResult) {
+                        callback.accept(SFEInitResult.failure(2002, 
+                            "Secure storage initialization failed"));
+                        return;
+                    }
+                    
+                    // Initialize security tokens
+                    initializeSecurityTokens(tokensResult -> {
+                        if (!tokensResult) {
+                            callback.accept(SFEInitResult.failure(2003, 
+                                "Security token initialization failed"));
+                            return;
+                        }
+                        
+                        // All initialization steps completed successfully
+                        callback.accept(SFEInitResult.success());
+                    });
+                });
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error during security initialization: " + e.getMessage(), e);
+            callback.accept(SFEInitResult.failure(2000, 
+                "Security initialization error: " + e.getMessage()));
         }
-        return false;
     }
-
-    /**
-     * Callback interface for SFE initialization result
-     */
-    public interface InitCallback {
-        void onInitComplete(SFEInitResult result);
+    
+    private void verifyAppIntegrity(Consumer<Boolean> callback) {
+        // In a real implementation, this would check APK signature, tamper detection, etc.
+        // For demonstration purposes, we'll just return success
+        callback.accept(true);
     }
-
+    
+    private void initializeSecureStorage(Consumer<Boolean> callback) {
+        // In a real implementation, this would initialize secure storage for keys
+        // For demonstration purposes, we'll just return success
+        callback.accept(true);
+    }
+    
+    private void initializeSecurityTokens(Consumer<Boolean> callback) {
+        // Generate and store security tokens
+        try {
+            // Session token
+            securityTokens.put("session_token", UUID.randomUUID().toString());
+            
+            // API key (in a real implementation, this would be securely stored)
+            securityTokens.put("api_key", config.getAppId() + "_" + System.currentTimeMillis());
+            
+            callback.accept(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing security tokens: " + e.getMessage(), e);
+            callback.accept(false);
+        }
+    }
+    
     /**
-     * Secure Communication Manager for handling secure API calls
+     * Inner class for handling secure communication between client and server.
      */
     public static class SecureCommunicationManager {
-        private final Context context;
-        private final SFEConfiguration configuration;
-
-        SecureCommunicationManager(Context context, SFEConfiguration configuration) {
-            this.context = context;
-            this.configuration = configuration;
+        private final Map<String, SFETransactionCallback> pendingTransactions = new HashMap<>();
+        
+        private SecureCommunicationManager() {
+            // Private constructor to prevent instantiation
         }
-
-        void initialize() {
-            // Initialize secure communication components
-        }
-
+        
         /**
-         * Sends a secure transaction to the specified endpoint
+         * Sends a secure transaction to the server.
          * 
-         * @param endpoint Target API endpoint
-         * @param data Transaction data
-         * @param timeout Transaction timeout in milliseconds
+         * @param endpoint API endpoint path
+         * @param payload Secure payload containing transaction data
          * @param callback Callback for transaction result
-         * @param <T> Type of transaction data
-         * @param <R> Type of expected response
          */
-        public <T, R> void sendTransaction(String endpoint, T data, long timeout,
-                                          TransactionCallback<R> callback) {
-            // Implementation would encrypt data, establish secure channel, etc.
-            // For this example, we'll simulate a successful transaction
+        public void sendSecureTransaction(@NonNull String endpoint, 
+                                         @NonNull SFESecurePayload payload,
+                                         @NonNull SFETransactionCallback callback) {
+            // Generate a transaction ID
+            String transactionId = UUID.randomUUID().toString();
             
-            if (!isEndpointAllowed(endpoint)) {
-                callback.onTransactionComplete(SFETransactionResult.failure(
-                        "Endpoint not allowed by security policy", 2001));
-                return;
-            }
+            // Store the callback for later use
+            pendingTransactions.put(transactionId, callback);
             
-            // Simulate network call with security checks
-            instance.executor.execute(() -> {
-                try {
-                    // Simulate processing time
-                    Thread.sleep(1000);
-                    
-                    // In a real implementation, this would make an actual secure API call
-                    callback.onTransactionComplete(SFETransactionResult.success((R) new Object()));
-                } catch (Exception e) {
-                    callback.onTransactionComplete(SFETransactionResult.failure(
-                            "Transaction failed: " + e.getMessage(), 2000));
+            // In a real implementation, this would encrypt the payload and send it to the server
+            // For demonstration purposes, we'll simulate a successful response
+            processResponse(transactionId, createSuccessResponse(transactionId));
+        }
+        
+        private void processResponse(String transactionId, SFETransactionResult result) {
+            // Get the callback for this transaction
+            SFETransactionCallback callback = pendingTransactions.remove(transactionId);
+            
+            // If we have a callback, invoke it with the result
+            if (callback != null) {
+                if (result.isSuccess()) {
+                    callback.onSuccess(result);
+                } else {
+                    callback.onError(new SFEException(
+                        result.getErrorMessage(), result.getErrorCode()));
                 }
-            });
-        }
-        
-        /**
-         * Specific method for bank transactions
-         */
-        public <T, R> void sendBankTransaction(String endpoint, T data, long timeout,
-                                              TransactionCallback<R> callback) {
-            // Add bank-specific security measures
-            if (configuration.getProviderType() != SFEProviderType.BANK) {
-                callback.onTransactionComplete(SFETransactionResult.failure(
-                        "Provider type mismatch for bank transaction", 2002));
-                return;
             }
-            
-            sendTransaction(endpoint, data, timeout, callback);
         }
         
-        private boolean isEndpointAllowed(String endpoint) {
-            return configuration.getAllowedAPIs().isEmpty() || 
-                   configuration.getAllowedAPIs().contains(endpoint);
+        private SFETransactionResult createSuccessResponse(String transactionId) {
+            // In a real implementation, this would be the response from the server
+            return new SFETransactionResult.Builder()
+                .success(transactionId)
+                .addMetadata("timestamp", System.currentTimeMillis())
+                .build();
         }
     }
-
+    
     /**
-     * Callback interface for transaction results
+     * Callback interface for secure transactions.
      */
-    public interface TransactionCallback<R> {
-        void onTransactionComplete(SFETransactionResult<R> result);
+    public interface SFETransactionCallback {
+        /**
+         * Called when a transaction is successful.
+         * 
+         * @param result The transaction result
+         */
+        void onSuccess(SFETransactionResult result);
+        
+        /**
+         * Called when a transaction fails.
+         * 
+         * @param e Exception with details about the failure
+         */
+        void onError(SFEException e);
     }
 }

@@ -1,11 +1,11 @@
 package com.app.sfe.security;
 
 /**
- * Enum defining different security levels that can be configured
- * according to the provider's requirements and regulatory standards.
+ * Enumeration of security levels for the SFE SDK.
+ * Defines how strictly security measures are enforced.
  */
 public enum SFESecurityLevel {
-    STANDARD,  // Base level security for basic operations
-    HIGH,      // Enhanced security for sensitive transactions
-    MAXIMUM    // Highest level of security for critical financial operations
+    STANDARD,  // Standard security level suitable for most applications
+    HIGH,      // High security for sensitive financial transactions
+    MAXIMUM    // Maximum security with all protective measures enabled
 }

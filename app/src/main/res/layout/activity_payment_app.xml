@@ -150,6 +150,81 @@
                     android:inputType="text" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Secure Container for SFE SDK Secure Fields -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Card Information (Secure Input)"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp" />
+
+            <!-- FrameLayout for the Secure Container -->
+            <FrameLayout
+                android:id="@+id/secure_container_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+                
+                <!-- SFESecureContainer will be added here programmatically -->
+                
+            </FrameLayout>
+            
+            <!-- Containers for individual secure fields -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Card Number"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                
+                <FrameLayout
+                    android:id="@+id/card_number_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@android:color/transparent" />
+                    
+            </com.google.android.material.textfield.TextInputLayout>
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:hint="Expiry Date"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    
+                    <FrameLayout
+                        android:id="@+id/expiry_date_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@android:color/transparent" />
+                        
+                </com.google.android.material.textfield.TextInputLayout>
+                
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:hint="CVV"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    
+                    <FrameLayout
+                        android:id="@+id/cvv_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@android:color/transparent" />
+                        
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -188,6 +263,12 @@
                         android:text="• The app runs in a secure environment"
                         android:layout_marginTop="2dp" />
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="• Card details are handled in a secure container"
+                        android:layout_marginTop="2dp" />
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
         </LinearLayout>
@@ -215,7 +296,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Pay Securely"
-            android:enabled="false"
+            android:enabled="true"
             android:backgroundTint="@color/design_default_color_primary"
             android:padding="12dp" />
 

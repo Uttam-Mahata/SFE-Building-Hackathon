@@ -16,8 +16,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Local SDK is built and included in the project directly
     }
 }
 
 rootProject.name = "SeFien"
 include(":app")
+include(":sfe-sdk")  // Add the SDK module

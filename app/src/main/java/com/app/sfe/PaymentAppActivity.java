@@ -2,8 +2,10 @@ package com.app.sfe;
 
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -13,14 +15,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
-import com.app.sfe.security.SFEConfiguration;
-import com.app.sfe.security.SFEInitResult;
-import com.app.sfe.security.SFEProviderType;
-import com.app.sfe.security.SFESecurityLevel;
-import com.app.sfe.security.SFETransactionResult;
 import com.app.sfe.security.SecureFinancialEnvironment;
+import com.app.sfe.security.SFETransactionResult;
 
-import java.util.Arrays;
 import java.util.List;
 
 public class PaymentAppActivity extends AppCompatActivity {
@@ -29,16 +26,18 @@ public class PaymentAppActivity extends AppCompatActivity {
     private CardView cardSecurityStatus;
     private ImageView ivSecurityIcon;
     private TextView tvSecurityStatus;
-    private EditText etRecipientName;
-    private EditText etRecipientNumber;
-    private EditText etAmount;
-    private EditText etDescription;
     private Button btnPay;
     private ProgressBar progressBar;
     private TextView tvSdkVersion;
-
-    // SFE SDK Initialization Status
-    private boolean sfeInitialized = false;
+    
+    // SFE Components
+    private SFESecureContainer secureContainer;
+    private SFESecureTextField cardNumberField;
+    private SFESecureTextField cvvField;
+    private SFESecureTextField expiryDateField;
+    private EditText etRecipientName;
+    private EditText etAmount;
+    private EditText etDescription;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,63 +48,118 @@ public class PaymentAppActivity extends AppCompatActivity {
         cardSecurityStatus = findViewById(R.id.card_security_status);
         ivSecurityIcon = findViewById(R.id.iv_security_icon);
         tvSecurityStatus = findViewById(R.id.tv_security_status);
-        etRecipientName = findViewById(R.id.et_recipient_name);
-        etRecipientNumber = findViewById(R.id.et_recipient_number);
-        etAmount = findViewById(R.id.et_amount);
-        etDescription = findViewById(R.id.et_description);
         btnPay = findViewById(R.id.btn_pay);
         progressBar = findViewById(R.id.progress_bar);
         tvSdkVersion = findViewById(R.id.tv_sdk_version);
+        etRecipientName = findViewById(R.id.et_recipient_name);
+        etAmount = findViewById(R.id.et_amount);
+        etDescription = findViewById(R.id.et_description);
 
         // Set SDK version information
-        tvSdkVersion.setText("SFE SDK v1.0.5");
+        tvSdkVersion.setText("SFE SDK v1.5.0");
+
+        // Initialize secure container
+        initializeSecureContainer();
 
         // Initialize listeners
         btnPay.setOnClickListener(v -> handlePaymentClick());
-
-        // Initialize SFE SDK
-        initializeSfeSDK();
+        
+        // Perform device security check
+        performSecurityCheck();
     }
 
-    private void initializeSfeSDK() {
-        showLoading(true);
-        updateSecurityStatus("Initializing security...", false);
-
-        // Define allowed API endpoints for this fintech app
-        List<String> allowedAPIs = Arrays.asList(
-            "https://api.fintechapp.com/payments/process",
-            "https://api.fintechapp.com/accounts/verify",
-            "https://api.fintechapp.com/transactions/history"
+    private void initializeSecureContainer() {
+        // Create a secure container for handling sensitive UI components
+        secureContainer = SFEManager.createSecureContainer(this);
+        
+        // Get the container view from layout
+        FrameLayout containerLayout = findViewById(R.id.secure_container_layout);
+        containerLayout.addView(secureContainer.getRootView());
+        
+        // Set up secure payment fields
+        setupSecurePaymentFields();
+    }
+    
+    private void setupSecurePaymentFields() {
+        // Create card number field
+        cardNumberField = secureContainer.createSecureTextField(
+            SFEInputType.CARD_NUMBER, 
+            new SFETextFieldConfig.Builder()
+                .setHint("Card Number")
+                .setMaxLength(16)
+                .build()
         );
-
-        // Initialize SFE with fintech-specific configuration
-        SFEConfiguration config = new SFEConfiguration.Builder()
-            .setAppId("fintech-payment-app-id")
-            .setProviderType(SFEProviderType.FINTECH)
-            .setCustomSecurityLevel(SFESecurityLevel.HIGH)
-            .setAllowedAPIs(allowedAPIs)
-            .setAnalyticsEnabled(true)
-            .setTransactionTimeout(15000) // 15 seconds
-            .build();
-
-        // Initialize the SFE SDK
-        SecureFinancialEnvironment.initialize(this, config, this::onSfeInitialized);
+        
+        // Create CVV field
+        cvvField = secureContainer.createSecureTextField(
+            SFEInputType.CVV, 
+            new SFETextFieldConfig.Builder()
+                .setHint("CVV")
+                .setMaxLength(3)
+                .setMaskInput(true)
+                .build()
+        );
+        
+        // Create expiry date field
+        expiryDateField = secureContainer.createSecureTextField(
+            SFEInputType.EXPIRY_DATE, 
+            new SFETextFieldConfig.Builder()
+                .setHint("MM/YY")
+                .setMaxLength(5)
+                .build()
+        );
+        
+        // Add fields to the container
+        ViewGroup cardNumberContainer = findViewById(R.id.card_number_container);
+        ViewGroup cvvContainer = findViewById(R.id.cvv_container);
+        ViewGroup expiryDateContainer = findViewById(R.id.expiry_date_container);
+        
+        cardNumberContainer.addView(cardNumberField.getView());
+        cvvContainer.addView(cvvField.getView());
+        expiryDateContainer.addView(expiryDateField.getView());
     }
 
-    private void onSfeInitialized(SFEInitResult result) {
-        runOnUiThread(() -> {
-            showLoading(false);
-
-            if (result.isSuccess()) {
-                sfeInitialized = true;
-                updateSecurityStatus("Secure Environment Active", true);
-                btnPay.setEnabled(true);
+    private void performSecurityCheck() {
+        updateSecurityStatus("Checking device security...", false);
+        
+        SFEDeviceSecurity deviceSecurity = SFEManager.getDeviceSecurity();
+        deviceSecurity.performSecurityCheck(result -> {
+            if (result.isDeviceSecure()) {
+                updateSecurityStatus("Device security verified", true);
             } else {
-                sfeInitialized = false;
-                updateSecurityStatus("Security Initialization Failed", false);
-                showSecurityAlert(result.getErrorReason(), result.getErrorCode());
+                List<SFESecurityRisk> risks = result.getSecurityRisks();
+                showSecurityRisks(risks);
+                
+                // Allow payments only if there are no high risks
+                btnPay.setEnabled(!result.hasHighRisks());
+                
+                if (result.hasHighRisks()) {
+                    updateSecurityStatus("Security risk detected", false);
+                } else {
+                    updateSecurityStatus("Minor security warnings", false);
+                }
             }
         });
+    }
+    
+    private void showSecurityRisks(List<SFESecurityRisk> risks) {
+        if (risks.isEmpty()) {
+            return;
+        }
+        
+        StringBuilder message = new StringBuilder("Security concerns detected:\n\n");
+        
+        for (SFESecurityRisk risk : risks) {
+            message.append("- ").append(risk.getDescription())
+                   .append(" (").append(risk.getLevel()).append(")\n");
+        }
+        
+        new AlertDialog.Builder(this)
+            .setTitle("Security Warning")
+            .setMessage(message.toString())
+            .setPositiveButton("OK", null)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show();
     }
 
     private void handlePaymentClick() {
@@ -114,22 +168,8 @@ public class PaymentAppActivity extends AppCompatActivity {
             return;
         }
 
-        // Check if SFE is initialized
-        if (!sfeInitialized) {
-            Toast.makeText(this, "Secure environment not initialized. Please restart the app.", 
-                          Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Verify secure environment before proceeding
-        if (!SecureFinancialEnvironment.verifySecureEnvironment()) {
-            showSecurityAlert("Secure environment verification failed. " +
-                             "Your device may be compromised.", 3001);
-            return;
-        }
-
-        // Proceed with payment
-        processPayment();
+        // Authenticate with biometric if available
+        authenticateUser();
     }
 
     private boolean validateInputFields() {
@@ -137,11 +177,6 @@ public class PaymentAppActivity extends AppCompatActivity {
 
         if (etRecipientName.getText().toString().trim().isEmpty()) {
             etRecipientName.setError("Recipient name is required");
-            isValid = false;
-        }
-
-        if (etRecipientNumber.getText().toString().trim().isEmpty()) {
-            etRecipientNumber.setError("Account number is required");
             isValid = false;
         }
 
@@ -164,49 +199,95 @@ public class PaymentAppActivity extends AppCompatActivity {
 
         return isValid;
     }
+    
+    private void authenticateUser() {
+        SFEBiometric biometric = SFEManager.getBiometric();
+        
+        if (biometric.isAvailable()) {
+            SFEBiometricPrompt.Builder promptBuilder = new SFEBiometricPrompt.Builder()
+                .setTitle("Payment Authentication")
+                .setSubtitle("Verify your identity")
+                .setDescription("Authentication is required to complete this payment")
+                .setNegativeButtonText("Cancel");
+            
+            biometric.authenticate(this, promptBuilder.build(), new SFEBiometricCallback() {
+                @Override
+                public void onSuccess() {
+                    // User authenticated successfully
+                    processPayment();
+                }
+                
+                @Override
+                public void onError(SFEBiometric.SFEBiometricError error) {
+                    // Handle authentication error
+                    Toast.makeText(PaymentAppActivity.this, 
+                        "Authentication failed: " + error.getMessage(), 
+                        Toast.LENGTH_SHORT).show();
+                }
+                
+                @Override
+                public void onCancel() {
+                    // User canceled the authentication
+                    Toast.makeText(PaymentAppActivity.this, 
+                        "Authentication canceled", 
+                        Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            // Biometric not available, proceed with payment
+            processPayment();
+        }
+    }
 
     private void processPayment() {
         showLoading(true);
         updateSecurityStatus("Processing secure payment...", true);
 
-        // Collect payment data from UI
-        PaymentData paymentData = new PaymentData(
-            etRecipientName.getText().toString(),
-            etRecipientNumber.getText().toString(),
-            Double.parseDouble(etAmount.getText().toString()),
-            etDescription.getText().toString()
-        );
+        // Collect payment data securely
+        SFESecurePayload securePayload = secureContainer.collectSecureData();
+        
+        // Add non-sensitive data
+        securePayload.addField("recipientName", 
+            new SFESecureTextField.SecureValue(etRecipientName.getText().toString()));
+        securePayload.addField("amount", 
+            new SFESecureTextField.SecureValue(etAmount.getText().toString()));
+        securePayload.addField("description", 
+            new SFESecureTextField.SecureValue(etDescription.getText().toString()));
 
-        // Use the SFE SDK to process the payment securely
+        // Send the transaction securely
         SecureFinancialEnvironment.getSecureCommunication()
-            .sendTransaction(
-                "https://api.fintechapp.com/payments/process",
-                paymentData,
-                15000, // 15 seconds timeout
-                this::onPaymentProcessed
+            .sendSecureTransaction(
+                "/api/payments/process",
+                securePayload,
+                new SecureFinancialEnvironment.SFETransactionCallback() {
+                    @Override
+                    public void onSuccess(SFETransactionResult result) {
+                        runOnUiThread(() -> {
+                            showLoading(false);
+                            updateSecurityStatus("Payment completed securely", true);
+                            showPaymentSuccessDialog(result.getTransactionId());
+                            clearInputFields();
+                        });
+                    }
+                    
+                    @Override
+                    public void onError(SFEException e) {
+                        runOnUiThread(() -> {
+                            showLoading(false);
+                            updateSecurityStatus("Secure Environment Active", true);
+                            showPaymentFailureDialog(e.getMessage(), e.getErrorCode());
+                        });
+                    }
+                }
             );
     }
 
-    private void onPaymentProcessed(SFETransactionResult<?> result) {
-        runOnUiThread(() -> {
-            showLoading(false);
-
-            if (result.isSuccess()) {
-                updateSecurityStatus("Secure Environment Active", true);
-                showPaymentSuccessDialog();
-                clearInputFields();
-            } else {
-                updateSecurityStatus("Secure Environment Active", true);
-                showPaymentFailureDialog(result.getErrorMessage(), result.getErrorCode());
-            }
-        });
-    }
-
-    private void showPaymentSuccessDialog() {
+    private void showPaymentSuccessDialog(String transactionId) {
         new AlertDialog.Builder(this)
             .setTitle("Payment Successful")
             .setMessage("Your payment of ₹" + etAmount.getText().toString() + 
-                       " to " + etRecipientName.getText().toString() + " was successful.")
+                       " to " + etRecipientName.getText().toString() + 
+                       " was successful.\n\nTransaction ID: " + transactionId)
             .setPositiveButton("OK", null)
             .setIcon(android.R.drawable.ic_dialog_info)
             .show();
@@ -217,15 +298,6 @@ public class PaymentAppActivity extends AppCompatActivity {
             .setTitle("Payment Failed")
             .setMessage("Error " + errorCode + ": " + message)
             .setPositiveButton("Try Again", null)
-            .setIcon(android.R.drawable.ic_dialog_alert)
-            .show();
-    }
-
-    private void showSecurityAlert(String message, int errorCode) {
-        new AlertDialog.Builder(this)
-            .setTitle("Security Warning")
-            .setMessage("Error " + errorCode + ": " + message)
-            .setPositiveButton("OK", null)
             .setIcon(android.R.drawable.ic_dialog_alert)
             .show();
     }
@@ -243,37 +315,29 @@ public class PaymentAppActivity extends AppCompatActivity {
 
     private void showLoading(boolean isLoading) {
         progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
-        btnPay.setEnabled(!isLoading && sfeInitialized);
+        btnPay.setEnabled(!isLoading);
     }
 
     private void clearInputFields() {
         etRecipientName.setText("");
-        etRecipientNumber.setText("");
         etAmount.setText("");
         etDescription.setText("");
-    }
-
-    /**
-     * Data class for payment information
-     */
-    static class PaymentData {
-        private final String recipientName;
-        private final String recipientAccount;
-        private final double amount;
-        private final String description;
-
-        PaymentData(String recipientName, String recipientAccount, 
-                   double amount, String description) {
-            this.recipientName = recipientName;
-            this.recipientAccount = recipientAccount;
-            this.amount = amount;
-            this.description = description;
+        
+        // Clear secure fields (this would typically be handled by the SDK)
+        // For demonstration purposes only
+        View cardNumberView = cardNumberField.getView();
+        if (cardNumberView instanceof EditText) {
+            ((EditText) cardNumberView).setText("");
         }
-
-        // Getters
-        public String getRecipientName() { return recipientName; }
-        public String getRecipientAccount() { return recipientAccount; }
-        public double getAmount() { return amount; }
-        public String getDescription() { return description; }
+        
+        View cvvView = cvvField.getView();
+        if (cvvView instanceof EditText) {
+            ((EditText) cvvView).setText("");
+        }
+        
+        View expiryDateView = expiryDateField.getView();
+        if (expiryDateView instanceof EditText) {
+            ((EditText) expiryDateView).setText("");
+        }
     }
 }

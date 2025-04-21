@@ -1,12 +1,13 @@
 package com.app.sfe.security;
 
 /**
- * Enum defining the different types of financial service providers
- * that can integrate with the SFE SDK.
+ * Enumeration of provider types supported by the SFE SDK.
+ * Defines different financial institution types.
  */
 public enum SFEProviderType {
-    BANK,        // Traditional banking institutions
-    FINTECH,     // Financial technology companies
-    PAYMENT_PROCESSOR, // Third-party payment processors
-    GOVERNMENT   // Government financial services
+    BANK,      // Traditional banking institution
+    FINTECH,   // Financial technology company
+    PSP,       // Payment Service Provider
+    NBFC,      // Non-Banking Financial Company
+    UPI        // Unified Payments Interface provider
 }
