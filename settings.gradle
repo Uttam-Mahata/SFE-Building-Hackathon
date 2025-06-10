@@ -1,0 +1,5 @@
+rootProject.name = 'sfe-ecosystem'
+
+include 'backendsdk'
+include 'sfpaybackend'
+
