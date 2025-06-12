@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+}
+
+subprojects {
+    apply plugin: 'java'
+    
+    repositories {
+        mavenCentral()
+    }
+    
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+    
+    tasks.withType(Test) {
+        useJUnitPlatform()
+    }
+}
+
+// Configure dependency between projects
+project(':sfpaybackend') {
+    dependencies {
+        implementation project(':backendsdk')
+    }
+} 
