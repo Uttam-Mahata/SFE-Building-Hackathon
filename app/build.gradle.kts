@@ -37,9 +37,10 @@ android {
 }
 
 dependencies {
-    // Import from JitPack (comment out the direct project dependency)
-    // implementation(project(":csfe"))
+    // Using JitPack dependency instead of direct project reference
     implementation("com.github.Uttam-Mahata:SFE-Building-Hackathon:v1.0.0")
+    // For local development, uncomment below and comment the line above
+    // implementation(project(":csfe"))
     
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
