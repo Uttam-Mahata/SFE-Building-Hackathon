@@ -5,3 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.android.library) apply false
 }
+
+// For JitPack compatibility
+tasks.register("clean", Delete::class) {
+    delete(rootProject.buildDir)
+}
