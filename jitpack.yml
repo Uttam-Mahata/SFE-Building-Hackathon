@@ -1,7 +1,11 @@
 jdk:
   - openjdk21
 before_install:
+  - echo "Using Java version:"
+  - java -version
   - ./gradlew clean -x :app:clean
   - echo "Configuring JitPack build to focus only on csfe module"
 install:
+  - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+  - echo "JAVA_HOME set to: $JAVA_HOME"
   - ./gradlew -b jitpack-build.gradle.kts :csfe:build :csfe:publishToMavenLocal
