@@ -298,7 +298,7 @@ fun TransactionItem(transaction: Transaction) {
                 
                 if (!transaction.description.isNullOrEmpty()) {
                     Text(
-                        text = transaction.description,
+                        text = transaction.description!!,
                         fontSize = 14.sp,
                         color = Color.Gray
                     )

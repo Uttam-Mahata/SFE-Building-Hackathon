@@ -50,6 +50,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material3:material3:1.1.2")
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
     
     // Additional dependencies for the payment app
     implementation("androidx.biometric:biometric:1.2.0-alpha05")

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,6 +77,9 @@ fun SendMoneyScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     var transactionId by remember { mutableStateOf("") }
     
+    // Get the context at the Composable level
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -114,7 +118,7 @@ fun SendMoneyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(onClick = { /* Open QR scanner */ }) {
-                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR")
+                            Icon(Icons.Default.QrCode2, contentDescription = "Scan QR")
                         }
                     }
                 )
@@ -211,52 +215,53 @@ fun SendMoneyScreen(
                             
                             // Direct implementation instead of calling authenticateAndPay
                             isLoading = true
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            if (context is androidx.activity.ComponentActivity) {
+                            // Using the context retrieved at the Composable level
+                            if (context is ComponentActivity) {
                                 val activity = context
                                 sfeSDK.auth().authenticateWithBiometrics(
                                     activity = activity,
                                     title = "Confirm Payment",
                                     subtitle = "Pay ₹${currentRequest!!.amount} to ${currentRequest!!.recipientVPA}",
                                     description = "Use your fingerprint to confirm this payment"
-                            ) { authResult ->
-                                when (authResult) {
-                                    is BiometricResult.Success -> {
-                                        // Authentication succeeded, proceed with payment
-                                        sfeSDK.payments().initiatePayment(currentRequest!!, authResult.token) { paymentResult ->
-                                            isLoading = false
-                                            when (paymentResult) {
-                                                is PaymentResult.Success -> {
-                                                    showConfirmation = true
-                                                }
-                                                is PaymentResult.Error -> {
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar("Payment failed: ${paymentResult.errorMessage}")
+                                ) { authResult ->
+                                    when (authResult) {
+                                        is BiometricResult.Success -> {
+                                            // Authentication succeeded, proceed with payment
+                                            sfeSDK.payments().initiatePayment(currentRequest!!, authResult.token) { paymentResult ->
+                                                isLoading = false
+                                                when (paymentResult) {
+                                                    is PaymentResult.Success -> {
+                                                        transactionId = paymentResult.transactionId
+                                                        showSuccessDialog = true
                                                     }
-                                                }
-                                                is PaymentResult.Pending -> {
-                                                    // Payment is pending
-                                                    isLoading = false
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar("Payment is being processed. ID: ${paymentResult.transactionId}")
+                                                    is PaymentResult.Error -> {
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar("Payment failed: ${paymentResult.errorMessage}")
+                                                        }
                                                     }
-                                                    // In a real app, we might navigate to a tracking screen
+                                                    is PaymentResult.Pending -> {
+                                                        // Payment is pending
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar("Payment is being processed. ID: ${paymentResult.transactionId}")
+                                                        }
+                                                        // In a real app, we might navigate to a tracking screen
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                                    is BiometricResult.Error -> {
-                                        // Authentication failed
-                                        isLoading = false
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Authentication failed: ${authResult.errorMessage}")
+                                        is BiometricResult.Error -> {
+                                            // Authentication failed
+                                            isLoading = false
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Authentication failed: ${authResult.errorMessage}")
+                                            }
                                         }
-                                    }
-                                    is BiometricResult.Cancelled -> {
-                                        // Authentication was cancelled
-                                        isLoading = false
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Authentication cancelled")
+                                        is BiometricResult.Cancelled -> {
+                                            // Authentication was cancelled
+                                            isLoading = false
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Authentication cancelled")
+                                            }
                                         }
                                     }
                                 }
@@ -311,3 +316,4 @@ fun SendMoneyScreen(
         }
     }
 }
+
