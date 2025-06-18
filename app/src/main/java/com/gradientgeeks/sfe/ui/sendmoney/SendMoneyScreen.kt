@@ -1,5 +1,6 @@
 package com.gradientgeeks.sfe.ui.sendmoney
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -113,7 +114,7 @@ fun SendMoneyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(onClick = { /* Open QR scanner */ }) {
-                            Icon(Icons.Default.QrCode, contentDescription = "Scan QR")
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR")
                         }
                     }
                 )
@@ -207,7 +208,64 @@ fun SendMoneyScreen(
                     Button(
                         onClick = {
                             showConfirmationDialog = false
-                            authenticateAndPay(currentRequest!!)
+                            
+                            // Direct implementation instead of calling authenticateAndPay
+                            isLoading = true
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            if (context is androidx.activity.ComponentActivity) {
+                                val activity = context
+                                sfeSDK.auth().authenticateWithBiometrics(
+                                    activity = activity,
+                                    title = "Confirm Payment",
+                                    subtitle = "Pay ₹${currentRequest!!.amount} to ${currentRequest!!.recipientVPA}",
+                                    description = "Use your fingerprint to confirm this payment"
+                            ) { authResult ->
+                                when (authResult) {
+                                    is BiometricResult.Success -> {
+                                        // Authentication succeeded, proceed with payment
+                                        sfeSDK.payments().initiatePayment(currentRequest!!, authResult.token) { paymentResult ->
+                                            isLoading = false
+                                            when (paymentResult) {
+                                                is PaymentResult.Success -> {
+                                                    showConfirmation = true
+                                                }
+                                                is PaymentResult.Error -> {
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar("Payment failed: ${paymentResult.errorMessage}")
+                                                    }
+                                                }
+                                                is PaymentResult.Pending -> {
+                                                    // Payment is pending
+                                                    isLoading = false
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar("Payment is being processed. ID: ${paymentResult.transactionId}")
+                                                    }
+                                                    // In a real app, we might navigate to a tracking screen
+                                                }
+                                            }
+                                        }
+                                    }
+                                    is BiometricResult.Error -> {
+                                        // Authentication failed
+                                        isLoading = false
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Authentication failed: ${authResult.errorMessage}")
+                                        }
+                                    }
+                                    is BiometricResult.Cancelled -> {
+                                        // Authentication was cancelled
+                                        isLoading = false
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Authentication cancelled")
+                                        }
+                                    }
+                                }
+                            } else {
+                                isLoading = false
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Error: Could not access Activity")
+                                }
+                            }
                         }
                     ) {
                         Text("Confirm")
@@ -250,62 +308,6 @@ fun SendMoneyScreen(
                     }
                 }
             )
-        }
-    }
-    
-    // Function to handle biometric authentication and payment
-    fun authenticateAndPay(request: PaymentRequest) {
-        isLoading = true
-        
-        sfeSDK.auth().authenticateWithBiometrics(
-            activity = androidx.compose.ui.platform.LocalContext.current as androidx.activity.ComponentActivity,
-            title = "Confirm Payment",
-            subtitle = "Pay ₹${request.amount} to ${request.recipientVPA}",
-            description = "Use your fingerprint to confirm this payment"
-        ) { authResult ->
-            when (authResult) {
-                is BiometricResult.Success -> {
-                    // Authentication succeeded, proceed with payment
-                    sfeSDK.payments().initiatePayment(request, authResult.token) { paymentResult ->
-                        isLoading = false
-                        
-                        when (paymentResult) {
-                            is PaymentResult.Success -> {
-                                // Payment succeeded
-                                transactionId = paymentResult.transactionId
-                                showSuccessDialog = true
-                            }
-                            is PaymentResult.Error -> {
-                                // Payment failed
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Payment failed: ${paymentResult.errorMessage}")
-                                }
-                            }
-                            is PaymentResult.Pending -> {
-                                // Payment is pending
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Payment is being processed. ID: ${paymentResult.transactionId}")
-                                }
-                                // In a real app, we might navigate to a tracking screen
-                            }
-                        }
-                    }
-                }
-                is BiometricResult.Error -> {
-                    // Authentication failed
-                    isLoading = false
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Authentication failed: ${authResult.errorMessage}")
-                    }
-                }
-                is BiometricResult.Cancelled -> {
-                    // Authentication was cancelled
-                    isLoading = false
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Authentication cancelled")
-                    }
-                }
-            }
         }
     }
 }

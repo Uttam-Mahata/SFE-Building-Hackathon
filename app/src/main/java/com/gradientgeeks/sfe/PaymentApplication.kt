@@ -21,10 +21,10 @@ class PaymentApplication : Application() {
             config = SFEConfig.Builder()
                 .setApiKey("sfe-hackathon-api-key-123456")
                 .setApiBaseUrl("https://api.sfe-hackathon.com/")
-                .setEnvironment(if (BuildConfig.DEBUG) SFEEnvironment.SANDBOX else SFEEnvironment.PRODUCTION)
+                .setEnvironment(SFEEnvironment.SANDBOX) // Use SANDBOX for demo
                 .enableBiometrics(true)
                 .enableDeviceBinding(true)
-                .setLogLevel(if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.ERROR)
+                .setLogLevel(LogLevel.DEBUG) // Use DEBUG for demo
                 .enableMockPayments(true) // For hackathon demo
                 .build()
         )

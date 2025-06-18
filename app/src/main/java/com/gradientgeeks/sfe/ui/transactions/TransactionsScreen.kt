@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Filter
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
@@ -100,7 +100,7 @@ fun TransactionsScreen(
                 },
                 actions = {
                     IconButton(onClick = { /* Show filter options */ }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Filter")
+                        Icon(Icons.Default.Filter, contentDescription = "Filter")
                     }
                 }
             )
