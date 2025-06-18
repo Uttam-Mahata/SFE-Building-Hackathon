@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.CAMERA" /> 
 
     <application
-        android:allowBackupContent="true"
+        android:allowBackup="true"
         android:supportsRtl="true">
         <!-- SDK doesn't need explicit activities declared here as it's a headless SDK -->
     </application>
