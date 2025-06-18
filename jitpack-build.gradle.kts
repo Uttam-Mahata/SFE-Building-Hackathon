@@ -6,6 +6,20 @@ plugins {
     id("maven-publish")
 }
 
+// Set project-wide Java compatibility
+allprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        kotlinOptions {
+            jvmTarget = "21"
+        }
+    }
+    
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = JavaVersion.VERSION_21.toString()
+        targetCompatibility = JavaVersion.VERSION_21.toString()
+    }
+}
+
 // Define the subproject that we want JitPack to publish
 subprojects { subproject ->
     // Only apply to the csfe module
@@ -15,13 +29,13 @@ subprojects { subproject ->
         
         // Ensure artifacts are properly named
         subproject.group = "com.github.Uttam-Mahata"
-        subproject.version = "v1.0.0"
+        subproject.version = "v1.0.1"
     }
 }
 
 // Skip the app module completely for JitPack builds
-project(":app").afterEvaluate {
-    tasks.configureEach {
+gradle.projectsEvaluated {
+    project(":app").tasks.configureEach {
         enabled = false
     }
 }

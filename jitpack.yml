@@ -1,5 +1,5 @@
 jdk:
-  - openjdk17
+  - openjdk21
 before_install:
   - ./gradlew clean -x :app:clean
   - echo "Configuring JitPack build to focus only on csfe module"
