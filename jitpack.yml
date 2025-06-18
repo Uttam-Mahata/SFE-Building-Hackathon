@@ -1,6 +1,7 @@
 jdk:
-  - openjdk11
+  - openjdk17
 before_install:
-  - ./gradlew clean
+  - ./gradlew clean -x :app:clean
+  - echo "Configuring JitPack build to focus only on csfe module"
 install:
-  - ./gradlew :csfe:build :csfe:publishToMavenLocal
+  - ./gradlew -b jitpack-build.gradle.kts :csfe:build :csfe:publishToMavenLocal
