@@ -4,4 +4,4 @@ jdk:
 before_install:
   - ./gradlew clean
 install:
-  - ./gradlew :csfe:build :csfe:publishToMavenLocal :backend-sdk:build :backend-sdk:publishToMavenLocal
+  - ./gradlew :csfe:build :csfe:publishToMavenLocal :backend-sdk:build :backend-sdk:publishToMavenLocal :payment-backend:build
