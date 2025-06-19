@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "SFE"
 include(":app")
 include(":csfe")
+include(":backend-sdk")
