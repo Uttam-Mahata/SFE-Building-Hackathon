@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -60,6 +60,7 @@ fun SendMoneyScreen(
     onBackClick: () -> Unit,
     onTransactionComplete: () -> Unit
 ) {
+    val context = LocalContext.current
     val sfeSDK = SFEClientSDK.getInstance()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -76,9 +77,6 @@ fun SendMoneyScreen(
     // State for the success dialog
     var showSuccessDialog by remember { mutableStateOf(false) }
     var transactionId by remember { mutableStateOf("") }
-    
-    // Get the context at the Composable level
-    val context = androidx.compose.ui.platform.LocalContext.current
     
     Scaffold(
         topBar = {
@@ -118,7 +116,7 @@ fun SendMoneyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(onClick = { /* Open QR scanner */ }) {
-                            Icon(Icons.Default.QrCode2, contentDescription = "Scan QR")
+                            Icon(Icons.Default.QrCode, contentDescription = "Scan QR")
                         }
                     }
                 )
@@ -212,10 +210,7 @@ fun SendMoneyScreen(
                     Button(
                         onClick = {
                             showConfirmationDialog = false
-                            
-                            // Direct implementation instead of calling authenticateAndPay
                             isLoading = true
-                            // Using the context retrieved at the Composable level
                             if (context is ComponentActivity) {
                                 val activity = context
                                 sfeSDK.auth().authenticateWithBiometrics(
@@ -240,24 +235,21 @@ fun SendMoneyScreen(
                                                         }
                                                     }
                                                     is PaymentResult.Pending -> {
-                                                        // Payment is pending
+                                                        isLoading = false
                                                         scope.launch {
                                                             snackbarHostState.showSnackbar("Payment is being processed. ID: ${paymentResult.transactionId}")
                                                         }
-                                                        // In a real app, we might navigate to a tracking screen
                                                     }
                                                 }
                                             }
                                         }
                                         is BiometricResult.Error -> {
-                                            // Authentication failed
                                             isLoading = false
                                             scope.launch {
                                                 snackbarHostState.showSnackbar("Authentication failed: ${authResult.errorMessage}")
                                             }
                                         }
                                         is BiometricResult.Cancelled -> {
-                                            // Authentication was cancelled
                                             isLoading = false
                                             scope.launch {
                                                 snackbarHostState.showSnackbar("Authentication cancelled")
@@ -316,4 +308,3 @@ fun SendMoneyScreen(
         }
     }
 }
-

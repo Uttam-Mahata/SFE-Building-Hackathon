@@ -1,8 +1,10 @@
 package com.gradientgeeks.csfe.security
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.EditText
 import com.gradientgeeks.csfe.config.EncryptionLevel
 import com.gradientgeeks.csfe.config.SFEConfig
 import com.gradientgeeks.csfe.utils.Logger
@@ -18,23 +20,83 @@ class SecurityModule(
 ) {
     private val TAG = "SecurityModule"
     
+    // Advanced security detectors
+    private val rootDetector = RootDetector(context)
+    private val emulatorDetector = EmulatorDetector(context)
+    private val antiDebugger = AntiDebugger(context)
+    private val hookDetector = HookDetector(context)
+    private val screenProtector = ScreenProtector(context)
+    private val secureKeyboard = SecureKeyboard(context)
+    
+    // Security monitoring state
+    private var isMonitoringActive = false
+    private var securityThreatCallback: ((SecurityThreat) -> Unit)? = null
+    
     /**
-     * Perform security checks to ensure the environment is safe.
+     * Perform comprehensive security checks using all available detectors
      */
-    fun performSecurityChecks() {
-        Logger.d(TAG, "Performing security checks...")
+    fun performSecurityChecks(): SecurityCheckResult {
+        Logger.d(TAG, "Performing comprehensive security checks...")
         
-        val isSafe = !isEmulator() && !isRooted() && !isDebuggerAttached()
+        val results = mutableMapOf<String, Boolean>()
+        val threats = mutableListOf<SecurityThreat>()
         
-        if (!isSafe) {
-            Logger.w(TAG, "Security check failed: device may not be secure")
-            
-            // In a real app, depending on the security policy, you might:
-            // 1. Disable sensitive features
-            // 2. Alert the user
-            // 3. Exit the app
-            // 4. Report to back-end for fraud monitoring
+        // Check for root
+        val isRooted = rootDetector.isRooted()
+        results["root_detection"] = isRooted
+        if (isRooted) {
+            threats.add(SecurityThreat.ROOT_DETECTED)
         }
+        
+        // Check for emulator
+        val isEmulator = emulatorDetector.isEmulator()
+        results["emulator_detection"] = isEmulator
+        if (isEmulator) {
+            threats.add(SecurityThreat.EMULATOR_DETECTED)
+        }
+        
+        // Check for debugger
+        val isDebuggerDetected = antiDebugger.isDebuggerDetected()
+        results["debugger_detection"] = isDebuggerDetected
+        if (isDebuggerDetected) {
+            threats.add(SecurityThreat.DEBUGGER_DETECTED)
+        }
+        
+        // Check for hooks
+        val isHooked = hookDetector.isHooked()
+        results["hook_detection"] = isHooked
+        if (isHooked) {
+            threats.add(SecurityThreat.HOOKS_DETECTED)
+        }
+        
+        // Check for screen recording
+        val isScreenRecording = screenProtector.isScreenRecordingActive()
+        results["screen_recording_detection"] = isScreenRecording
+        if (isScreenRecording) {
+            threats.add(SecurityThreat.SCREEN_RECORDING_DETECTED)
+        }
+        
+        // Check keyboard security
+        val isKeyboardSecure = secureKeyboard.isSecureKeyboard()
+        results["keyboard_security"] = !isKeyboardSecure
+        if (!isKeyboardSecure) {
+            threats.add(SecurityThreat.INSECURE_KEYBOARD)
+        }
+        
+        val overallSafe = threats.isEmpty()
+        
+        Logger.d(TAG, "Security check completed. Safe: $overallSafe, Threats: ${threats.size}")
+        
+        if (!overallSafe) {
+            Logger.w(TAG, "Security threats detected: ${threats.joinToString { it.name }}")
+            securityThreatCallback?.invoke(threats.first()) // Report first threat
+        }
+        
+        return SecurityCheckResult(
+            isSafe = overallSafe,
+            threats = threats,
+            detectionResults = results
+        )
     }
     
     /**
@@ -132,43 +194,87 @@ class SecurityModule(
     }
     
     /**
-     * Check if the device is an emulator.
+     * Start continuous security monitoring
      */
-    private fun isEmulator(): Boolean {
-        return Build.FINGERPRINT.contains("generic")
-            || Build.MODEL.contains("google_sdk")
-            || Build.MODEL.contains("Emulator")
-            || Build.MODEL.contains("Android SDK")
-            || Build.MANUFACTURER.contains("Genymotion")
-            || Build.PRODUCT.contains("sdk")
-    }
-    
-    /**
-     * Check if the device has been rooted.
-     */
-    private fun isRooted(): Boolean {
-        val paths = arrayOf(
-            "/system/app/Superuser.apk",
-            "/system/xbin/su",
-            "/system/bin/su",
-            "/sbin/su",
-            "/system/su",
-            "/system/bin/.ext/.su"
-        )
-        
-        for (path in paths) {
-            if (File(path).exists()) {
-                return true
-            }
+    fun startSecurityMonitoring(onThreatDetected: (SecurityThreat) -> Unit) {
+        if (isMonitoringActive) {
+            Logger.w(TAG, "Security monitoring already active")
+            return
         }
         
-        return false
+        securityThreatCallback = onThreatDetected
+        isMonitoringActive = true
+        
+        Logger.d(TAG, "Starting continuous security monitoring")
+        
+        // Start anti-debugging monitoring
+        antiDebugger.startMonitoring {
+            onThreatDetected(SecurityThreat.DEBUGGER_DETECTED)
+        }
+        
+        // Enable ptrace protection
+        antiDebugger.enablePtraceProtection()
+        
+        Logger.d(TAG, "Security monitoring started")
     }
     
     /**
-     * Check if a debugger is attached to the app.
+     * Stop security monitoring
      */
-    private fun isDebuggerAttached(): Boolean {
-        return android.os.Debug.isDebuggerConnected()
+    fun stopSecurityMonitoring() {
+        isMonitoringActive = false
+        antiDebugger.stopMonitoring()
+        Logger.d(TAG, "Security monitoring stopped")
+    }
+    
+    /**
+     * Enable screen protection for an activity
+     */
+    fun enableScreenProtection(activity: Activity) {
+        screenProtector.enableScreenProtection(activity) {
+            securityThreatCallback?.invoke(SecurityThreat.SCREEN_RECORDING_DETECTED)
+        }
+    }
+    
+    /**
+     * Disable screen protection for an activity
+     */
+    fun disableScreenProtection(activity: Activity) {
+        screenProtector.disableScreenProtection(activity)
+    }
+    
+    /**
+     * Secure an EditText field for sensitive input
+     */
+    fun secureEditText(editText: EditText, isPasswordField: Boolean = false) {
+        secureKeyboard.secureEditText(editText, isPasswordField)
+    }
+    
+    /**
+     * Get keyboard security recommendations
+     */
+    fun getKeyboardSecurityRecommendations(): List<String> {
+        return secureKeyboard.getSecureKeyboardRecommendations()
+    }
+    
+    /**
+     * Check if the device is an emulator (legacy method for backward compatibility)
+     */
+    fun isEmulator(): Boolean {
+        return emulatorDetector.isEmulator()
+    }
+    
+    /**
+     * Check if the device has been rooted (legacy method for backward compatibility)
+     */
+    fun isRooted(): Boolean {
+        return rootDetector.isRooted()
+    }
+    
+    /**
+     * Check if a debugger is attached (legacy method for backward compatibility)
+     */
+    fun isDebuggerAttached(): Boolean {
+        return antiDebugger.isDebuggerDetected()
     }
 }
