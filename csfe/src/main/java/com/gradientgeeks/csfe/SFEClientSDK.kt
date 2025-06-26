@@ -10,7 +10,6 @@ import com.gradientgeeks.csfe.config.FraudDetectionLevel
 import com.gradientgeeks.csfe.fraud.FraudDetectionModule
 import com.gradientgeeks.csfe.payment.PaymentModule
 import com.gradientgeeks.csfe.qr.QRCodeModule
-import com.gradientgeeks.csfe.security.SecurityModule
 import com.gradientgeeks.csfe.transaction.TransactionModule
 import com.gradientgeeks.csfe.wallet.WalletModule
 import com.gradientgeeks.csfe.utils.Logger
@@ -27,7 +26,6 @@ class SFEClientSDK private constructor(
     private val authModule: AuthModule by lazy { AuthModule(context, config) }
     private val paymentModule: PaymentModule by lazy { PaymentModule(context, config) }
     private val qrCodeModule: QRCodeModule by lazy { QRCodeModule(context, config) }
-    private val securityModule: SecurityModule by lazy { SecurityModule(context, config) }
     private val fraudDetectionModule: FraudDetectionModule by lazy { FraudDetectionModule(context, config) }
     private val transactionModule: TransactionModule by lazy { TransactionModule(context, config) }
     private val walletModule: WalletModule by lazy { WalletModule(context, config) }
@@ -35,7 +33,7 @@ class SFEClientSDK private constructor(
     init {
         Logger.init(config.logLevel)
         Logger.d(TAG, "SFE Client SDK initialized with environment: ${config.environment}")
-        securityModule.performSecurityChecks()
+       
     }
     
     /**
@@ -56,7 +54,7 @@ class SFEClientSDK private constructor(
     /**
      * Access the security module for device binding and security checks.
      */
-    fun security(): SecurityModule = securityModule
+  
     
     /**
      * Access the fraud detection module for transaction risk analysis.

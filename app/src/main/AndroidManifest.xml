@@ -13,6 +13,9 @@
     <!-- Camera permission for QR scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
     
+    <!-- Camera hardware feature - not required for ChromeOS compatibility -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    
     <!-- Vibration for feedback -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
