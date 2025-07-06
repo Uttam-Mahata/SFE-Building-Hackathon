@@ -17,6 +17,8 @@ import com.gradientgeeks.csfe.utils.Logger
 import java.lang.ref.WeakReference
 import java.util.EnumMap
 import java.util.UUID
+import org.json.JSONObject
+import java.util.Date
 
 /**
  * Handles QR code generation and scanning for payments.
@@ -165,4 +167,105 @@ class QRCodeModule(
             callback(QRScanResult.Success(paymentData))
         }, 1500)
     }
+}
+
+/**
+ * QR generation request data
+ */
+data class QRGenerationRequest(
+    val amount: Double,
+    val description: String,
+    val merchantId: String? = null,
+    val expiryMinutes: Int = 15,
+    val size: Int = 512
+) {
+    class Builder {
+        private var amount: Double = 0.0
+        private var description: String = ""
+        private var merchantId: String? = null
+        private var expiryMinutes: Int = 15
+        private var size: Int = 512
+        
+        fun setAmount(amount: Double): Builder {
+            this.amount = amount
+            return this
+        }
+        
+        fun setDescription(description: String): Builder {
+            this.description = description
+            return this
+        }
+        
+        fun setMerchantId(merchantId: String): Builder {
+            this.merchantId = merchantId
+            return this
+        }
+        
+        fun setExpiryMinutes(minutes: Int): Builder {
+            this.expiryMinutes = minutes
+            return this
+        }
+        
+        fun setSize(size: Int): Builder {
+            this.size = size
+            return this
+        }
+        
+        fun build(): QRGenerationRequest {
+            return QRGenerationRequest(amount, description, merchantId, expiryMinutes, size)
+        }
+    }
+}
+
+/**
+ * Payment QR data
+ */
+data class PaymentQRData(
+    val amount: Double,
+    val description: String,
+    val merchantId: String,
+    val transactionId: String,
+    val expiryTime: Date?
+)
+
+/**
+ * UPI QR data
+ */
+data class UPIQRData(
+    val payeeAddress: String,
+    val payeeName: String,
+    val amount: Double?,
+    val transactionNote: String?,
+    val currency: String,
+    val merchantCode: String?,
+    val transactionId: String?
+)
+
+/**
+ * QR generation result
+ */
+sealed class QRGenerationResult {
+    data class Success(
+        val qrCodeBitmap: Bitmap,
+        val qrCodeData: String,
+        val expiryTime: Date?
+    ) : QRGenerationResult()
+    
+    data class Error(val errorMessage: String) : QRGenerationResult()
+}
+
+/**
+ * QR scan result
+ */
+sealed class QRScanResult {
+    data class Success(val paymentData: PaymentQRData) : QRScanResult()
+    data class Error(val errorMessage: String) : QRScanResult()
+}
+
+/**
+ * UPI QR result
+ */
+sealed class UPIQRResult {
+    data class Success(val upiData: UPIQRData) : UPIQRResult()
+    data class Error(val errorMessage: String) : UPIQRResult()
 }
