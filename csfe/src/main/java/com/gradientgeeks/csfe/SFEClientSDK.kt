@@ -8,6 +8,7 @@ import com.gradientgeeks.csfe.config.LogLevel
 import com.gradientgeeks.csfe.config.EncryptionLevel
 import com.gradientgeeks.csfe.config.FraudDetectionLevel
 import com.gradientgeeks.csfe.fraud.FraudDetectionModule
+import com.gradientgeeks.csfe.network.NetworkManager
 import com.gradientgeeks.csfe.payment.PaymentModule
 import com.gradientgeeks.csfe.qr.QRCodeModule
 import com.gradientgeeks.csfe.security.SecurityModule
@@ -23,6 +24,9 @@ class SFEClientSDK private constructor(
     private val context: Context,
     private val config: SFEConfig
 ) {
+    // Network manager for API communications
+    val networkManager: NetworkManager by lazy { NetworkManager(config) }
+    
     // Module instances
     private val authModule: AuthModule by lazy { AuthModule(context, config) }
     private val paymentModule: PaymentModule by lazy { PaymentModule(context, config) }
@@ -35,6 +39,10 @@ class SFEClientSDK private constructor(
     init {
         Logger.init(config.logLevel)
         Logger.d(TAG, "SFE Client SDK initialized with environment: ${config.environment}")
+        Logger.d(TAG, "API Base URL: ${config.apiBaseUrl}")
+        Logger.d(TAG, "Mock mode enabled: ${config.enableMockPayments}")
+        
+        // Perform initial security checks
         securityModule.performSecurityChecks()
     }
     
@@ -72,6 +80,16 @@ class SFEClientSDK private constructor(
      * Access the wallet module for balance checks and wallet operations.
      */
     fun wallet(): WalletModule = walletModule
+    
+    /**
+     * Get the SDK configuration.
+     */
+    fun getConfig(): SFEConfig = config
+    
+    /**
+     * Check if the SDK is in mock mode.
+     */
+    fun isMockMode(): Boolean = config.enableMockPayments
     
     /**
      * Builder class for creating SFEClientSDK instances.
