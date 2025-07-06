@@ -1,0 +1,49 @@
+sfe:
+  backend-sdk:
+    api-key: ${SFE_API_KEY:demo-key-12345}
+    environment: ${SFE_ENVIRONMENT:sandbox}
+    database-url: ${DATABASE_URL:}
+    fraud-detection-enabled: true
+    audit-logging-enabled: true
+    encryption-level: AES_256
+    mock-mode-enabled: false
+    latency-simulation: 0
+    base-url: https://api.sfe.com
+    rate-limit-enabled: true
+    max-requests-per-minute: 1000
+
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:h2:mem:testdb}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.h2.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    
+logging:
+  level:
+    com.sfe.backend: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: sfe-backend-sdk.log
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
