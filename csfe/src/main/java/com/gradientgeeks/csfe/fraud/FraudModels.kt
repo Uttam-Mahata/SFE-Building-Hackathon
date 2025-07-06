@@ -22,7 +22,9 @@ enum class RiskLevel {
 
 /**
  * Result of risk analysis for a transaction.
+ * @deprecated Use FraudDetectionResult instead
  */
+@Deprecated("Use FraudDetectionResult instead")
 data class RiskAnalysisResult(
     val riskLevel: RiskLevel,
     val reason: String,
